@@ -73,6 +73,21 @@ File coinvolti:
 | `spring.security.oauth2.client.registration.m2m.provider` | Collega la registrazione `m2m` al provider chiamato `m2m` (dove è definito il token endpoint). | `m2m` |
 | `spring.security.oauth2.client.provider.m2m.token-uri` | URL dell'endpoint token di Keycloak da cui `service-a` richiede il JWT. | `http://localhost:8190/realms/rubrica-realm/protocol/openid-connect/token` |
 
+#### Focus su `authorization-grant-type`
+
+La proprietà `spring.security.oauth2.client.registration.<id>.authorization-grant-type` dice a Spring **come ottenere il token** dal provider OAuth2.
+
+Grant type principali:
+- `client_credentials`: servizio ↔ servizio (M2M), senza utente finale. È quello corretto in questo progetto.
+- `authorization_code`: login utente via browser + redirect (tipico web app con utente interattivo).
+- `refresh_token`: rinnovo access token usando un refresh token già ottenuto (non è un flusso iniziale di login).
+- `password` (Resource Owner Password Credentials): storico/deprecato, da evitare nei nuovi progetti.
+- `urn:ietf:params:oauth:grant-type:jwt-bearer` o token exchange: scenari avanzati di federation/delega (solo se esplicitamente supportati dall'IdP).
+
+In breve:
+- se chi chiama è un backend tecnico senza utente -> `client_credentials`
+- se c'è login utente con browser -> `authorization_code`
+
 Differenza pratica tra i due profili di `service-a`:
 - profilo default (`application.properties`): usa `service-a-client` (ha ruolo `CALL_B`) -> chiamata a `service-b` autorizzata (`200`)
 - profilo `no-role` (`application-no-role.properties`): usa `service-a-no-role-client` (senza `CALL_B`) -> chiamata rifiutata (`403`)
