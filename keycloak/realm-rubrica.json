@@ -1,0 +1,67 @@
+{
+  "realm": "rubrica-realm",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "CALL_B",
+        "description": "Permette la chiamata machine-to-machine verso service-b"
+      }
+    ],
+    "client": {
+      "service-a-client": [
+        {
+          "name": "CALL_B"
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "service-a-client",
+      "name": "Service A Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "service-a-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
+    },
+    {
+      "clientId": "service-a-no-role-client",
+      "name": "Service A No Role Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "service-a-no-role-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-service-a-client",
+      "enabled": true,
+      "serviceAccountClientId": "service-a-client",
+      "realmRoles": [
+        "CALL_B"
+      ],
+      "clientRoles": {
+        "service-a-client": [
+          "CALL_B"
+        ]
+      }
+    },
+    {
+      "username": "service-account-service-a-no-role-client",
+      "enabled": true,
+      "serviceAccountClientId": "service-a-no-role-client",
+      "realmRoles": [],
+      "clientRoles": {}
+    }
+  ]
+}

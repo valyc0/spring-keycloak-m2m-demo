@@ -1,0 +1,12 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1.1
+    container_name: rubrica-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8190:8080"
+    volumes:
+      - ./keycloak/realm-rubrica.json:/opt/keycloak/data/import/realm-rubrica.json:ro

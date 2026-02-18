@@ -1,0 +1,26 @@
+# --- Build artifacts (Maven/Spring) ---
+**/target/
+
+# --- Logs and runtime files ---
+*.log
+logs/*.log
+logs/*.pid
+logs/*-response.json
+
+# --- Local archives/backups ---
+backup/
+*.tar.gz
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+*.iml
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+
+# --- Environment / local overrides ---
+.env
+.env.*
+!.env.example
