@@ -10,3 +10,19 @@ services:
       - "8190:8080"
     volumes:
       - ./keycloak/realm-rubrica.json:/opt/keycloak/data/import/realm-rubrica.json:ro
+
+  apisix:
+    image: apache/apisix:3.12.0-debian
+    container_name: rubrica-apisix
+    depends_on:
+      - keycloak
+    environment:
+      APISIX_STAND_ALONE: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9080:9080"
+      - "9180:9180"
+    volumes:
+      - ./apisix/conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ./apisix/conf/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro

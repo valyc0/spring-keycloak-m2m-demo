@@ -10,10 +10,43 @@ Questo progetto mostra una comunicazione **machine-to-machine** tra due microser
 
 ## Componenti
 
-- `docker-compose.yml`: avvio Keycloak
+- `docker-compose.yml`: avvio Keycloak + APISIX gateway
+- `apisix/conf/apisix.yaml`: route APISIX protetta con OpenID Connect verso Keycloak
 - `keycloak/realm-rubrica.json`: realm, client e ruoli
 - `service-a`: client OAuth2 che inoltra la chiamata verso `service-b`
 - `service-b`: resource server JWT, endpoint protetto con ruolo
+
+## APISIX: come funziona e come si usa
+
+APISIX è il gateway davanti a `service-open`:
+
+- ingresso client: `http://localhost:9080/hello-myworld`
+- controllo token OAuth2/OIDC contro Keycloak
+- inoltro all'upstream `service-open` su `host.docker.internal:8082`
+
+Configurazione chiave:
+
+- route e plugin OIDC: `apisix/conf/apisix.yaml`
+- porta pubblica APISIX: `9080` in `docker-compose.yml`
+- upstream backend: `host.docker.internal:8082` in `apisix/conf/apisix.yaml`
+
+Uso rapido:
+
+1. Avvia `service-open` (deve ascoltare su `8082`)
+2. Avvia infrastruttura gateway+IdP:
+   - `./start-docker-compose.sh`
+3. Test senza token (atteso `401`):
+   - `curl -i http://localhost:9080/hello-myworld`
+4. Test con token OAuth2 (atteso `200`):
+   - `./test_apisix_oauth2.sh`
+
+Come cambiare backend/porta:
+
+- se `service-open` cambia porta, aggiorna:
+  - `server.port` in `service-open/src/main/resources/application.properties`
+  - nodo upstream in `apisix/conf/apisix.yaml`
+- poi ricarica APISIX:
+  - `docker compose restart apisix`
 
 ## Flusso autorizzativo
 
@@ -137,6 +170,13 @@ sequenceDiagram
 
 - `./start-docker-compose.sh` -> `docker compose up -d`
 - `./stop-flow.sh` -> stop processi Java del flow + `docker compose down`
+
+### Test APISIX + Keycloak (OAuth2/OIDC)
+
+- Avvia `service-open` sulla porta `8082`
+- Avvia infrastruttura: `./start-docker-compose.sh`
+- Chiamata protetta via APISIX: `./test_apisix_oauth2.sh`
+- Endpoint APISIX: `http://localhost:9080/hello-myworld`
 
 ### Avvio servizi
 

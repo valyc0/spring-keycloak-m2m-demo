@@ -1,0 +1,26 @@
+routes:
+  - id: 1
+    uri: /hello-myworld
+    upstream_id: 1
+    plugins:
+      openid-connect:
+        bearer_only: true
+        client_id: service-a-client
+        client_secret: service-a-secret
+        discovery: http://host.docker.internal:8190/realms/rubrica-realm/.well-known/openid-configuration
+        realm: rubrica-realm
+        use_jwks: true
+        claim_validator:
+          issuer:
+            valid_issuers:
+              - http://localhost:8190/realms/rubrica-realm
+        set_access_token_header: true
+        ssl_verify: false
+
+upstreams:
+  - id: 1
+    type: roundrobin
+    nodes:
+      "host.docker.internal:8082": 1
+
+#END
