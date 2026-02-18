@@ -51,6 +51,71 @@ Per ridurre accoppiamento con un IdP specifico, la configurazione applicativa us
    - `app.security.idp.authority-prefix`
    - `spring.security.oauth2.resourceserver.jwt.issuer-uri=${app.security.idp.issuer-uri}`
 
+## Dettaglio properties Keycloak
+
+Di seguito sono spiegati **tutti i parametri nei file `application*.properties` usati per la connessione/autenticazione con Keycloak**, separati per servizio.
+
+### Service A (OAuth2 Client)
+
+File coinvolti:
+- `service-a/src/main/resources/application.properties` (client con ruolo)
+- `service-a/src/main/resources/application-no-role.properties` (client senza ruolo)
+
+`service-a` usa il grant **`client_credentials`**: non c'è login utente, il servizio ottiene un access token in nome del client tecnico.
+
+| Proprietà | A cosa serve | Valore tipico |
+|---|---|---|
+| `app.security.oauth2.client-registration-id` | Nome logico della registrazione OAuth2 che il codice usa per chiedere il token (`RestClientConfig` usa questo id). Deve combaciare con il blocco `registration.<id>.*`. | `m2m` |
+| `app.security.oauth2.principal` | Identificatore tecnico del principal usato internamente da Spring per associare il token autorizzato. Non è un utente Keycloak. | `service-a` |
+| `spring.security.oauth2.client.registration.m2m.client-id` | `client_id` registrato nel realm Keycloak. Identifica quale client sta chiedendo il token. | `service-a-client` oppure `service-a-no-role-client` |
+| `spring.security.oauth2.client.registration.m2m.client-secret` | Segreto del client (`client_secret`) usato insieme al `client_id` nella chiamata al token endpoint. | `service-a-secret` oppure `service-a-no-role-secret` |
+| `spring.security.oauth2.client.registration.m2m.authorization-grant-type` | Tipo di grant OAuth2. Per M2M deve essere `client_credentials`. | `client_credentials` |
+| `spring.security.oauth2.client.registration.m2m.provider` | Collega la registrazione `m2m` al provider chiamato `m2m` (dove è definito il token endpoint). | `m2m` |
+| `spring.security.oauth2.client.provider.m2m.token-uri` | URL dell'endpoint token di Keycloak da cui `service-a` richiede il JWT. | `http://localhost:8190/realms/rubrica-realm/protocol/openid-connect/token` |
+
+Differenza pratica tra i due profili di `service-a`:
+- profilo default (`application.properties`): usa `service-a-client` (ha ruolo `CALL_B`) -> chiamata a `service-b` autorizzata (`200`)
+- profilo `no-role` (`application-no-role.properties`): usa `service-a-no-role-client` (senza `CALL_B`) -> chiamata rifiutata (`403`)
+
+### Service B (Resource Server JWT)
+
+File coinvolto:
+- `service-b/src/main/resources/application.properties`
+
+`service-b` **non richiede token a Keycloak**: riceve un bearer token e lo valida come Resource Server.
+
+| Proprietà | A cosa serve | Valore tipico |
+|---|---|---|
+| `app.security.idp.issuer-uri` | Issuer base dell'Identity Provider. Deve combaciare con il claim `iss` nel JWT emesso da Keycloak. | `http://localhost:8190/realms/rubrica-realm` |
+| `spring.security.oauth2.resourceserver.jwt.issuer-uri` | Configurazione Spring Security per validare JWT via issuer: da qui Spring risolve metadata/JWK (discovery OpenID). In questo progetto riusa la property sopra. | `${app.security.idp.issuer-uri}` |
+| `app.security.idp.role-claim-paths` | Percorsi claim da cui estrarre i ruoli nel token (usati da `IdpRoleConverter`). Supporta più path separati da virgola e wildcard `*`. | `realm_access.roles,resource_access.*.roles` |
+| `app.security.idp.authority-prefix` | Prefisso aggiunto alle authority Spring Security quando manca nel token. Necessario perché `hasRole('CALL_B')` si aspetta `ROLE_CALL_B`. | `ROLE_` |
+
+Come viene usato in autorizzazione:
+- il converter legge i ruoli dai claim configurati
+- applica il prefisso (`ROLE_`)
+- l'endpoint protetto con `@PreAuthorize("hasRole('CALL_B')")` richiede quindi l'authority finale `ROLE_CALL_B`
+
+### Schema rapido del flusso
+
+```mermaid
+sequenceDiagram
+   participant A as service-a (OAuth2 Client)
+   participant K as Keycloak
+   participant B as service-b (Resource Server)
+
+   A->>K: POST /protocol/openid-connect/token\nclient_id + client_secret\ngrant_type=client_credentials
+   K-->>A: access_token JWT (iss, exp, roles)
+   A->>B: GET /api/rubrica\nAuthorization: Bearer <token>
+   B->>B: Verifica issuer-uri + firma (JWK)
+   B->>B: Estrae ruoli da role-claim-paths\nApplica authority-prefix
+   alt ruolo CALL_B presente
+      B-->>A: 200 OK + dati rubrica
+   else ruolo CALL_B assente
+      B-->>A: 403 Forbidden
+   end
+```
+
 ## Script utili
 
 ### Avvio/Stop infrastruttura
