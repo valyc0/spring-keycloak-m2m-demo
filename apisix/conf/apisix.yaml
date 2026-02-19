@@ -3,6 +3,8 @@ routes:
     uri: /hello-myworld
     upstream_id: 1
     plugins:
+
+      # 1️⃣  Valida firma / scadenza del token
       openid-connect:
         bearer_only: true
         client_id: service-a-client
@@ -14,8 +16,72 @@ routes:
           issuer:
             valid_issuers:
               - http://localhost:8190/realms/rubrica-realm
+              - http://host.docker.internal:8190/realms/rubrica-realm
         set_access_token_header: true
         ssl_verify: false
+
+      # 2️⃣  Controlla che il JWT contenga il ruolo "CALL_B"
+      serverless-pre-function:
+        phase: rewrite
+        functions:
+          - |
+            return function(conf, ctx)
+              local ngx  = ngx
+              local auth = ngx.req.get_headers()["Authorization"]
+              if not auth or not auth:find("Bearer ", 1, true) then
+                ngx.status = 403
+                ngx.header.content_type = "application/json"
+                ngx.say('{"message":"Missing Bearer token"}')
+                return ngx.exit(403)
+              end
+
+              local token = auth:sub(8)
+              local dot1  = token:find(".", 1, true)
+              local dot2  = dot1 and token:find(".", dot1 + 1, true)
+              if not dot2 then
+                ngx.status = 403
+                ngx.header.content_type = "application/json"
+                ngx.say('{"message":"Malformed token"}')
+                return ngx.exit(403)
+              end
+
+              local b64 = token:sub(dot1 + 1, dot2 - 1):gsub("-", "+"):gsub("_", "/")
+              local pad = #b64 % 4
+              if pad > 0 then
+                b64 = b64 .. ("="):rep(4 - pad)
+              end
+
+              local json_str = ngx.decode_base64(b64)
+              if not json_str then
+                ngx.status = 403
+                ngx.header.content_type = "application/json"
+                ngx.say('{"message":"Cannot decode token"}')
+                return ngx.exit(403)
+              end
+
+              local cjson  = require("cjson.safe")
+              local claims = cjson.decode(json_str)
+              if not claims then
+                ngx.status = 403
+                ngx.header.content_type = "application/json"
+                ngx.say('{"message":"Cannot parse token"}')
+                return ngx.exit(403)
+              end
+
+              local roles = claims.realm_access and claims.realm_access.roles
+              if roles then
+                for _, r in ipairs(roles) do
+                  if r == "CALL_B" then
+                    return
+                  end
+                end
+              end
+
+              ngx.status = 403
+              ngx.header.content_type = "application/json"
+              ngx.say('{"message":"Forbidden: role CALL_B is required"}')
+              return ngx.exit(403)
+            end
 
 upstreams:
   - id: 1
