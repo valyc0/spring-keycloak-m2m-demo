@@ -11,6 +11,19 @@ services:
     volumes:
       - ./keycloak/realm-rubrica.json:/opt/keycloak/data/import/realm-rubrica.json:ro
 
+  openresty:
+    profiles: ["openresty"]
+    build:
+      context: ./openresty
+      dockerfile: Dockerfile
+    container_name: rubrica-openresty
+    depends_on:
+      - keycloak
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9081:9080"
+
   apisix:
     image: apache/apisix:3.12.0-debian
     container_name: rubrica-apisix
@@ -26,3 +39,4 @@ services:
     volumes:
       - ./apisix/conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
       - ./apisix/conf/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+      - ./apisix/conf/role_guard.lua:/usr/local/apisix/role_guard.lua:ro

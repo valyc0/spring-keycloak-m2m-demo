@@ -48,6 +48,38 @@ Come cambiare backend/porta:
 - poi ricarica APISIX:
   - `docker compose restart apisix`
 
+## OpenResty: esempio equivalente ad APISIX
+
+È disponibile anche una variante gateway con OpenResty davanti a `service-open`:
+
+- ingresso client: `http://localhost:9081/hello-myworld`
+- validazione bearer token OIDC/JWT contro Keycloak via `lua-resty-openidc`
+- controllo ruolo realm (`CALL_B`) via Lua (`openresty/lua/role_guard.lua`)
+- inoltro all'upstream `service-open` su `host.docker.internal:8082`
+
+File principali:
+
+- servizio nel compose principale (`profile: openresty`): `docker-compose.yml`
+- immagine e moduli Lua: `openresty/Dockerfile`
+- config gateway: `openresty/nginx.conf`
+- guard ruoli: `openresty/lua/role_guard.lua`
+
+Uso rapido:
+
+1. Avvia `service-open` (porta `8082`)
+2. Avvia stack OpenResty + Keycloak:
+   - `./start-openresty-compose.sh`
+3. Test senza token (atteso `401`):
+   - `curl -i http://localhost:9081/hello-myworld`
+4. Test con token client role (atteso `200`):
+   - `./test_openresty_oauth2.sh`
+5. Test con token client senza ruolo (atteso `403`):
+   - `./test_openresty_oauth2_no_role.sh`
+
+Stop stack OpenResty:
+
+- `./stop-openresty-compose.sh`
+
 ## Flusso autorizzativo
 
 1. Client M2M (service-a-role) richiede token a Keycloak
@@ -177,6 +209,14 @@ sequenceDiagram
 - Avvia infrastruttura: `./start-docker-compose.sh`
 - Chiamata protetta via APISIX: `./test_apisix_oauth2.sh`
 - Endpoint APISIX: `http://localhost:9080/hello-myworld`
+
+### Test OpenResty + Keycloak (OAuth2/OIDC)
+
+- Avvia `service-open` sulla porta `8082`
+- Avvia stack OpenResty: `./start-openresty-compose.sh`
+- Chiamata protetta via OpenResty: `./test_openresty_oauth2.sh`
+- Chiamata con client senza ruolo: `./test_openresty_oauth2_no_role.sh`
+- Endpoint OpenResty: `http://localhost:9081/hello-myworld`
 
 ### Avvio servizi
 
